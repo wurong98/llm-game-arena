@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
 import { getMatches, getAgents, createMatch } from "../api";
+import { POLL_INTERVAL_MS } from "../lib/format";
+import Button from "../components/Button/Button";
+import MatchCard from "../components/MatchCard/MatchCard";
+import styles from "./MatchList.module.css";
 
 export default function MatchList() {
   const [matches, setMatches] = useState([]);
@@ -15,7 +18,7 @@ export default function MatchList() {
 
   useEffect(() => {
     load();
-    const t = setInterval(load, 2000);
+    const t = setInterval(load, POLL_INTERVAL_MS);
     return () => clearInterval(t);
   }, []);
 
@@ -29,7 +32,7 @@ export default function MatchList() {
     <div>
       <h2>对局列表</h2>
 
-      <div style={{ marginBottom: 20, padding: 10, border: "1px solid #ccc" }}>
+      <div className={styles.createPanel}>
         <h3>创建对局(井字棋)</h3>
         <select value={px} onChange={(e) => setPx(e.target.value)}>
           <option value="">选择 X 方</option>
@@ -47,33 +50,16 @@ export default function MatchList() {
             </option>
           ))}
         </select>
-        <button onClick={handleCreate}>创建对局</button>
+        <Button variant="primary" onClick={handleCreate}>
+          创建对局
+        </Button>
       </div>
 
-      <table border="1" cellPadding="6">
-        <thead>
-          <tr>
-            <th>match_id</th>
-            <th>X</th>
-            <th>O</th>
-            <th>状态</th>
-            <th>胜者</th>
-          </tr>
-        </thead>
-        <tbody>
-          {matches.map((m) => (
-            <tr key={m.match_id}>
-              <td>
-                <Link to={`/matches/${m.match_id}`}>{m.match_id}</Link>
-              </td>
-              <td>{agents.find((a) => a.agent_id === m.player_x)?.display_name || m.player_x}</td>
-              <td>{agents.find((a) => a.agent_id === m.player_o)?.display_name || m.player_o}</td>
-              <td>{m.status}</td>
-              <td>{m.winner || "-"}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <div className={styles.list}>
+        {matches.map((m) => (
+          <MatchCard key={m.match_id} match={m} agents={agents} />
+        ))}
+      </div>
     </div>
   );
 }

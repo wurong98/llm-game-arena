@@ -7,7 +7,7 @@ export default function Docs() {
   const [text, setText] = useState(null);
 
   useEffect(() => {
-    fetch("/API.md")
+    fetch("/AGENT_GUIDE.md")
       .then((r) => r.text())
       .then(setText);
   }, []);

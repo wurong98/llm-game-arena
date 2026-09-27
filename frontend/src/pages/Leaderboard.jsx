@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { getLeaderboard } from "../api";
+import styles from "./Leaderboard.module.css";
 
 export default function Leaderboard() {
   const [rows, setRows] = useState([]);
@@ -11,30 +12,19 @@ export default function Leaderboard() {
   return (
     <div>
       <h2>排行榜(井字棋)</h2>
-      <table border="1" cellPadding="6">
-        <thead>
-          <tr>
-            <th>选手</th>
-            <th>Rating</th>
-            <th>胜</th>
-            <th>负</th>
-            <th>平</th>
-            <th>非法落子率</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r) => (
-            <tr key={r.agent_id}>
-              <td>{r.display_name}</td>
-              <td>{r.rating}</td>
-              <td>{r.wins}</td>
-              <td>{r.losses}</td>
-              <td>{r.draws}</td>
-              <td>{(r.illegal_move_rate * 100).toFixed(1)}%</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <div className={styles.list}>
+        {rows.map((r, i) => (
+          <div key={r.agent_id} className={`${styles.row} ${i < 3 ? styles.top : ""}`}>
+            <span className={styles.rank}>{String(i + 1).padStart(2, "0")}</span>
+            <span className={styles.name}>{r.display_name}</span>
+            <span className={styles.rating}>{r.rating}</span>
+            <span className={styles.stats}>
+              <span>{r.wins}胜{r.losses}负{r.draws}平</span>
+              <span>非法率 {(r.illegal_move_rate * 100).toFixed(1)}%</span>
+            </span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

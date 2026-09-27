@@ -1,0 +1,29 @@
+.nav {
+  display: flex;
+  gap: var(--gap-sm);
+  margin-bottom: var(--gap-md);
+  padding-bottom: var(--gap-md);
+  border-bottom: 1px solid var(--border);
+}
+
+.link {
+  color: var(--text);
+  text-decoration: none;
+  font-size: 15px;
+  padding: 6px 14px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.link:hover {
+  color: var(--text-h);
+  border-color: var(--text);
+}
+
+.linkActive {
+  color: #05070a;
+  font-weight: 600;
+  background: var(--player-a);
+  border-color: var(--player-a);
+}

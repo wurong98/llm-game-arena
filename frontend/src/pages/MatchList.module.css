@@ -1,0 +1,31 @@
+.createPanel {
+  display: flex;
+  align-items: center;
+  gap: var(--gap-sm);
+  padding: var(--gap-md);
+  margin-bottom: var(--gap-md);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.createPanel h3 {
+  margin: 0;
+  font-size: 15px;
+  color: var(--text-h);
+  flex-shrink: 0;
+}
+
+.createPanel select {
+  font: inherit;
+  background: var(--surface-2);
+  color: var(--text-h);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 4px 8px;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+}

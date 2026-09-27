@@ -1,0 +1,71 @@
+.card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--gap-md);
+  padding: 14px var(--gap-md);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  margin-bottom: var(--gap-sm);
+  text-align: left;
+  text-decoration: none;
+  color: inherit;
+}
+
+.card:hover {
+  border-color: var(--text);
+}
+
+.matchup {
+  display: flex;
+  align-items: center;
+  gap: var(--gap-md);
+  flex: 1;
+  min-width: 0;
+}
+
+.player {
+  min-width: 0;
+}
+
+.player.x {
+  color: var(--player-a);
+  text-align: right;
+}
+
+.player.o {
+  color: var(--player-b);
+}
+
+.name {
+  font-weight: 600;
+  font-size: 16px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.winner {
+  color: var(--winner) !important;
+}
+
+.vs {
+  color: var(--defeated);
+  font-size: 13px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.meta {
+  display: flex;
+  align-items: center;
+  gap: var(--gap-sm);
+  flex-shrink: 0;
+}
+
+.matchId {
+  color: var(--defeated);
+  font-family: var(--mono);
+  font-size: 12px;
+}

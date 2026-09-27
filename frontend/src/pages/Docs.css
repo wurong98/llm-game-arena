@@ -7,22 +7,28 @@
 }
 
 .docs-content pre {
-  background: #f5f5f5;
+  background: var(--code-bg);
+  color: var(--text-h);
   padding: 12px;
   overflow-x: auto;
-  border-radius: 4px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
 }
 
 .docs-content code {
-  background: #f0f0f0;
+  background: var(--code-bg);
+  color: var(--text-h);
   padding: 2px 4px;
   border-radius: 3px;
   font-size: 0.9em;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .docs-content pre code {
   background: none;
   padding: 0;
+  white-space: pre;
 }
 
 .docs-content table {
@@ -32,10 +38,11 @@
 
 .docs-content th,
 .docs-content td {
-  border: 1px solid #ccc;
+  border: 1px solid var(--border);
   padding: 6px 10px;
+  color: var(--text);
 }
 
 .docs-loading {
-  color: #888;
+  color: var(--defeated);
 }

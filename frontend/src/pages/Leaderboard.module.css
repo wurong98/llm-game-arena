@@ -1,0 +1,58 @@
+.list {
+  border-top: 1px solid var(--border);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--gap-md);
+  padding: 10px 4px;
+  border-bottom: 1px solid var(--border);
+}
+
+.rank {
+  width: 28px;
+  flex-shrink: 0;
+  font-family: var(--mono);
+  color: var(--defeated);
+  text-align: right;
+}
+
+.top .rank {
+  color: var(--winner);
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-h);
+}
+
+.top .name {
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.rating {
+  width: 60px;
+  flex-shrink: 0;
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-h);
+  text-align: right;
+}
+
+.stats {
+  display: flex;
+  gap: var(--gap-sm);
+  flex-shrink: 0;
+  color: var(--defeated);
+  font-size: 13px;
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+}

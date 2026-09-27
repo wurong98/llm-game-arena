@@ -25,6 +25,17 @@ export async function getLeaderboard(game_type) {
   return (await fetch(`${BASE}/leaderboard?game_type=${game_type}`)).json();
 }
 
+export async function registerAgent(display_name, description, supported_games) {
+  const res = await fetch(`${BASE}/agents/register`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ display_name, description, supported_games }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || "register_failed");
+  return data;
+}
+
 export async function createMatch(game_type, player_x, player_o) {
   const res = await fetch(`${BASE}/matches`, {
     method: "POST",
