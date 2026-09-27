@@ -1,8 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { getMatchState, getMoveDebug } from "../api";
 
-function Board({ board }) {
+function Board({ board, highlightPos }) {
   return (
     <div
       style={{
@@ -18,6 +18,7 @@ function Board({ board }) {
             width: 60,
             height: 60,
             border: "1px solid #333",
+            background: i === highlightPos ? "#fff3cd" : "white",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -31,10 +32,27 @@ function Board({ board }) {
   );
 }
 
+function computeBoardAtStep(moveHistory, boardLength, step) {
+  const board = Array(boardLength).fill("");
+  let lastPos = null;
+  let applied = 0;
+  for (const m of moveHistory) {
+    if (applied >= step) break;
+    if (m.valid && typeof m.pos === "number") {
+      board[m.pos] = m.mark;
+      lastPos = m.pos;
+    }
+    applied += 1;
+  }
+  return { board, lastPos };
+}
+
 export default function MatchDetail() {
   const { id } = useParams();
   const [state, setState] = useState(null);
   const [debugMap, setDebugMap] = useState({});
+  const [replayStep, setReplayStep] = useState(null); // null = 跟随最新
+  const [live, setLive] = useState(true);
 
   useEffect(() => {
     const load = async () => {
@@ -51,7 +69,20 @@ export default function MatchDetail() {
     setDebugMap((prev) => ({ ...prev, [index]: d }));
   };
 
+  const totalSteps = state?.move_history.length ?? 0;
+  const currentStep = live ? totalSteps : replayStep ?? totalSteps;
+
+  const { board: replayBoard, lastPos } = useMemo(() => {
+    if (!state) return { board: [], lastPos: null };
+    return computeBoardAtStep(state.move_history, state.board.length, currentStep);
+  }, [state, currentStep]);
+
   if (!state) return <div>加载中...</div>;
+
+  const goToStep = (step) => {
+    setLive(false);
+    setReplayStep(Math.max(0, Math.min(totalSteps, step)));
+  };
 
   return (
     <div>
@@ -59,7 +90,40 @@ export default function MatchDetail() {
       <p>
         状态: {state.status} {state.winner ? `胜者: ${state.winner}` : ""}
       </p>
-      <Board board={state.board} />
+
+      <Board board={replayBoard} highlightPos={live ? null : lastPos} />
+
+      <div style={{ margin: "12px 0", display: "flex", alignItems: "center", gap: 8 }}>
+        <button onClick={() => goToStep(0)} disabled={currentStep === 0}>
+          ⏮ 开局
+        </button>
+        <button onClick={() => goToStep(currentStep - 1)} disabled={currentStep === 0}>
+          ◀ 上一步
+        </button>
+        <input
+          type="range"
+          min={0}
+          max={totalSteps}
+          value={currentStep}
+          onChange={(e) => goToStep(Number(e.target.value))}
+          style={{ flex: 1 }}
+        />
+        <button onClick={() => goToStep(currentStep + 1)} disabled={currentStep >= totalSteps}>
+          下一步 ▶
+        </button>
+        <button
+          onClick={() => {
+            setLive(true);
+            setReplayStep(null);
+          }}
+          disabled={live}
+        >
+          跳到最新 ⏭
+        </button>
+        <span>
+          第 {currentStep} / {totalSteps} 步{live ? "(实时)" : "(回放)"}
+        </span>
+      </div>
 
       <h3 style={{ marginTop: 20 }}>落子历史 / Debug</h3>
       <table border="1" cellPadding="6">
@@ -77,7 +141,14 @@ export default function MatchDetail() {
         <tbody>
           {state.move_history.map((m) => (
             <>
-              <tr key={m.move_index}>
+              <tr
+                key={m.move_index}
+                onClick={() => goToStep(m.move_index + 1)}
+                style={{
+                  cursor: "pointer",
+                  background: !live && currentStep === m.move_index + 1 ? "#e7f1ff" : "transparent",
+                }}
+              >
                 <td>{m.move_index}</td>
                 <td>{m.agent_id}</td>
                 <td>{m.mark}</td>
@@ -85,7 +156,14 @@ export default function MatchDetail() {
                 <td>{m.valid ? "✔" : "✘"}</td>
                 <td>{m.at}</td>
                 <td>
-                  <button onClick={() => loadDebug(m.move_index)}>查看</button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      loadDebug(m.move_index);
+                    }}
+                  >
+                    查看
+                  </button>
                 </td>
               </tr>
               {debugMap[m.move_index] && (
