@@ -43,7 +43,9 @@ CREATE TABLE IF NOT EXISTS matches (
   illegal_move_count_x INTEGER NOT NULL DEFAULT 0,
   illegal_move_count_o INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL
+  updated_at TEXT NOT NULL,
+  turn_started_at TEXT,
+  move_timeout_ms INTEGER
 );
 
 CREATE TABLE IF NOT EXISTS moves (
@@ -61,3 +63,13 @@ CREATE TABLE IF NOT EXISTS moves (
   at TEXT NOT NULL
 );
 `);
+
+function addColumnIfMissing(table, column, definition) {
+  const cols = db.prepare(`PRAGMA table_info(${table})`).all();
+  if (!cols.some((c) => c.name === column)) {
+    db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+  }
+}
+
+addColumnIfMissing("matches", "turn_started_at", "TEXT");
+addColumnIfMissing("matches", "move_timeout_ms", "INTEGER");

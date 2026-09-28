@@ -8,6 +8,18 @@ import { updateElo } from "../elo.js";
 export const matchesRouter = Router();
 
 const ILLEGAL_MOVE_LIMIT = 3;
+const DEFAULT_MOVE_TIMEOUT_MS = 5 * 60 * 1000; // 5 分钟,本地小模型也能参与
+
+function checkTimeout(match) {
+  if (match.status !== "in_progress" || !match.turn_started_at) return match;
+  const timeoutMs = match.move_timeout_ms || DEFAULT_MOVE_TIMEOUT_MS;
+  const elapsed = Date.now() - new Date(match.turn_started_at).getTime();
+  if (elapsed <= timeoutMs) return match;
+
+  const winner = match.turn === "X" ? "O" : "X";
+  finishMatch(match, winner);
+  return db.prepare("SELECT * FROM matches WHERE match_id = ?").get(match.match_id);
+}
 
 function ensureRating(agent_id, game_type) {
   const existing = db
@@ -32,6 +44,8 @@ function serializeMatch(row) {
     player_o: row.player_o,
     created_at: row.created_at,
     ended_at: row.status === "finished" ? row.updated_at : null,
+    move_timeout_ms: row.move_timeout_ms || DEFAULT_MOVE_TIMEOUT_MS,
+    turn_started_at: row.turn_started_at,
   };
 }
 
@@ -58,7 +72,7 @@ function getMoveHistory(match_id) {
 }
 
 matchesRouter.post("/matches", (req, res) => {
-  const { game_type, player_x, player_o } = req.body || {};
+  const { game_type, player_x, player_o, move_timeout_ms } = req.body || {};
   const rule = getGameRule(game_type);
   if (!rule) return res.status(400).json({ ok: false, error: "unknown_game_type" });
 
@@ -66,14 +80,19 @@ matchesRouter.post("/matches", (req, res) => {
   const po = db.prepare("SELECT agent_id FROM agents WHERE agent_id = ?").get(player_o);
   if (!px || !po) return res.status(400).json({ ok: false, error: "unknown_agent" });
 
+  const timeoutMs =
+    typeof move_timeout_ms === "number" && move_timeout_ms > 0
+      ? move_timeout_ms
+      : DEFAULT_MOVE_TIMEOUT_MS;
+
   const match_id = "m_" + nanoid(10);
   const board = rule.init_board();
   const now = new Date().toISOString();
 
   db.prepare(
-    `INSERT INTO matches (match_id, game_type, player_x, player_o, board, turn, status, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, 'X', 'in_progress', ?, ?)`
-  ).run(match_id, game_type, player_x, player_o, JSON.stringify(board), now, now);
+    `INSERT INTO matches (match_id, game_type, player_x, player_o, board, turn, status, created_at, updated_at, turn_started_at, move_timeout_ms)
+     VALUES (?, ?, ?, ?, ?, 'X', 'in_progress', ?, ?, ?, ?)`
+  ).run(match_id, game_type, player_x, player_o, JSON.stringify(board), now, now, now, timeoutMs);
 
   ensureRating(player_x, game_type);
   ensureRating(player_o, game_type);
@@ -94,7 +113,7 @@ matchesRouter.get("/matches", (req, res) => {
     params.push(status);
   }
   query += " ORDER BY created_at DESC";
-  const rows = db.prepare(query).all(...params);
+  const rows = db.prepare(query).all(...params).map(checkTimeout);
 
   const latencyByMatch = {};
   if (rows.length) {
@@ -131,8 +150,9 @@ matchesRouter.get("/matches", (req, res) => {
 });
 
 matchesRouter.get("/matches/:id/state", (req, res) => {
-  const row = db.prepare("SELECT * FROM matches WHERE match_id = ?").get(req.params.id);
+  let row = db.prepare("SELECT * FROM matches WHERE match_id = ?").get(req.params.id);
   if (!row) return res.status(404).json({ ok: false, error: "match_not_found" });
+  row = checkTimeout(row);
   res.json({
     ...serializeMatch(row),
     ...getLatencyTotals(row.match_id, row.player_x, row.player_o),
@@ -162,8 +182,9 @@ matchesRouter.get("/matches/:id/moves/:index/debug", (req, res) => {
 });
 
 matchesRouter.post("/matches/:id/move", requireAgentAuth, (req, res) => {
-  const match = db.prepare("SELECT * FROM matches WHERE match_id = ?").get(req.params.id);
+  let match = db.prepare("SELECT * FROM matches WHERE match_id = ?").get(req.params.id);
   if (!match) return res.status(404).json({ ok: false, error: "match_not_found" });
+  match = checkTimeout(match);
   if (match.status !== "in_progress") {
     return res.status(400).json({ ok: false, error: "match_finished" });
   }
@@ -212,11 +233,9 @@ matchesRouter.post("/matches/:id/move", requireAgentAuth, (req, res) => {
         winner,
       });
     }
-    db.prepare(`UPDATE matches SET ${countField} = ?, updated_at = ? WHERE match_id = ?`).run(
-      newCount,
-      now,
-      match.match_id
-    );
+    db.prepare(
+      `UPDATE matches SET ${countField} = ?, updated_at = ?, turn_started_at = ? WHERE match_id = ?`
+    ).run(newCount, now, now, match.match_id);
     return res.json({ ok: false, error: validation.error, illegal_move_count: newCount });
   }
 
@@ -224,15 +243,12 @@ matchesRouter.post("/matches/:id/move", requireAgentAuth, (req, res) => {
   const result = rule.check_end(newBoard);
   const nextTurn = mark === "X" ? "O" : "X";
 
+  db.prepare(
+    "UPDATE matches SET board = ?, turn = ?, updated_at = ?, turn_started_at = ? WHERE match_id = ?"
+  ).run(JSON.stringify(newBoard), nextTurn, now, now, match.match_id);
+
   if (result.finished) {
-    db.prepare(
-      "UPDATE matches SET board = ?, turn = ?, updated_at = ? WHERE match_id = ?"
-    ).run(JSON.stringify(newBoard), nextTurn, now, match.match_id);
     finishMatch({ ...match, board: JSON.stringify(newBoard) }, result.winner);
-  } else {
-    db.prepare(
-      "UPDATE matches SET board = ?, turn = ?, updated_at = ? WHERE match_id = ?"
-    ).run(JSON.stringify(newBoard), nextTurn, now, match.match_id);
   }
 
   res.json({ ok: true, board: newBoard, next_turn: nextTurn });
