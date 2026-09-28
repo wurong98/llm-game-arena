@@ -17,7 +17,7 @@ function checkTimeout(match) {
   if (elapsed <= timeoutMs) return match;
 
   const winner = match.turn === "X" ? "O" : "X";
-  finishMatch(match, winner);
+  finishMatch(match, winner, "timeout");
   return db.prepare("SELECT * FROM matches WHERE match_id = ?").get(match.match_id);
 }
 
@@ -40,6 +40,7 @@ function serializeMatch(row) {
     turn: row.turn,
     status: row.status,
     winner: row.winner,
+    end_reason: row.end_reason,
     player_x: row.player_x,
     player_o: row.player_o,
     created_at: row.created_at,
@@ -140,6 +141,7 @@ matchesRouter.get("/matches", (req, res) => {
         player_o: r.player_o,
         status: r.status,
         winner: r.winner,
+        end_reason: r.end_reason,
         created_at: r.created_at,
         ended_at: r.status === "finished" ? r.updated_at : null,
         latency_x_ms: latency[r.player_x] || 0,
@@ -224,7 +226,7 @@ matchesRouter.post("/matches/:id/move", requireAgentAuth, (req, res) => {
     const newCount = match[countField] + 1;
     if (newCount >= ILLEGAL_MOVE_LIMIT) {
       const winner = mark === "X" ? "O" : "X";
-      finishMatch(match, winner);
+      finishMatch(match, winner, "illegal_moves");
       return res.json({
         ok: false,
         error: validation.error,
@@ -248,16 +250,17 @@ matchesRouter.post("/matches/:id/move", requireAgentAuth, (req, res) => {
   ).run(JSON.stringify(newBoard), nextTurn, now, now, match.match_id);
 
   if (result.finished) {
-    finishMatch({ ...match, board: JSON.stringify(newBoard) }, result.winner);
+    const reason = result.winner === "draw" ? "draw" : "win";
+    finishMatch({ ...match, board: JSON.stringify(newBoard) }, result.winner, reason);
   }
 
   res.json({ ok: true, board: newBoard, next_turn: nextTurn });
 });
 
-function finishMatch(match, winner) {
+function finishMatch(match, winner, reason) {
   db.prepare(
-    "UPDATE matches SET status = 'finished', winner = ?, updated_at = ? WHERE match_id = ?"
-  ).run(winner, new Date().toISOString(), match.match_id);
+    "UPDATE matches SET status = 'finished', winner = ?, end_reason = ?, updated_at = ? WHERE match_id = ?"
+  ).run(winner, reason, new Date().toISOString(), match.match_id);
 
   const gameType = match.game_type;
   const rx = db.prepare("SELECT * FROM ratings WHERE agent_id = ? AND game_type = ?").get(match.player_x, gameType);

@@ -1,12 +1,14 @@
 import { Link } from "react-router-dom";
 import Badge from "../Badge/Badge";
-import { getAgentName, getMatchStatus, formatDateTime, formatDuration } from "../../lib/format";
+import { getAgentName, getMatchStatus, getEndReason, formatDateTime, formatDuration } from "../../lib/format";
 import styles from "./MatchCard.module.css";
 
 export default function MatchCard({ match, agents }) {
   const status = getMatchStatus(match.status);
   const xName = getAgentName(agents, match.player_x);
   const oName = getAgentName(agents, match.player_o);
+  const showEndReasonBadge = match.end_reason === "timeout" || match.end_reason === "illegal_moves";
+  const endReason = showEndReasonBadge ? getEndReason(match.end_reason) : null;
 
   return (
     <Link to={`/matches/${match.match_id}`} className={styles.card}>
@@ -26,7 +28,11 @@ export default function MatchCard({ match, agents }) {
         <span className={styles.timestamps}>
           {formatDateTime(match.created_at)} → {match.ended_at ? formatDateTime(match.ended_at) : "进行中"}
         </span>
-        {match.winner && <Badge tone="winner">胜者: {getAgentName(agents, match.winner)}</Badge>}
+        {match.winner === "draw" && <Badge tone="neutral">平局</Badge>}
+        {match.winner && match.winner !== "draw" && (
+          <Badge tone="winner">胜者: {getAgentName(agents, match.winner)}</Badge>
+        )}
+        {endReason && <Badge tone={endReason.tone}>{endReason.label}</Badge>}
         <Badge tone={status.tone}>{status.label}</Badge>
       </div>
     </Link>

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { getMatchState, getMoveDebug } from "../api";
+import { getEndReason } from "../lib/format";
 
 const WIN_LINES = [
   [0, 1, 2],
@@ -145,7 +146,11 @@ export default function MatchDetail() {
     <div>
       <h2>对局 {id}</h2>
       <p>
-        状态: {state.status} {state.winner ? `胜者: ${state.winner}` : ""}
+        状态: {state.status}{" "}
+        {state.winner === "draw" && "平局"}
+        {state.winner && state.winner !== "draw" && `胜者: ${state.winner}`}
+        {(state.end_reason === "timeout" || state.end_reason === "illegal_moves") &&
+          ` (${getEndReason(state.end_reason).label})`}
       </p>
 
       <Board board={replayBoard} highlightPos={live ? null : lastPos} winLine={winLine} />

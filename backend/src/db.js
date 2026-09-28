@@ -73,8 +73,14 @@ function addColumnIfMissing(table, column, definition) {
 
 addColumnIfMissing("matches", "turn_started_at", "TEXT");
 addColumnIfMissing("matches", "move_timeout_ms", "INTEGER");
+addColumnIfMissing("matches", "end_reason", "TEXT");
 
 db.exec(
   `UPDATE matches SET turn_started_at = updated_at
    WHERE status = 'in_progress' AND turn_started_at IS NULL`
+);
+
+db.exec(
+  `UPDATE matches SET end_reason = CASE WHEN winner = 'draw' THEN 'draw' ELSE 'win' END
+   WHERE status = 'finished' AND end_reason IS NULL`
 );
