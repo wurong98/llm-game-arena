@@ -33,7 +33,7 @@ export default function MatchCard({ match, agents }) {
         <div className={styles.timeSlot}>
           <span className={styles.timeLabel}>结束</span>
           {match.ended_at ? (
-            <span className={styles.timeValue}>{formatDateTime(match.ended_at)}</span>
+            <span className={`${styles.timeValue} ${styles.timeEnded}`}>{formatDateTime(match.ended_at)}</span>
           ) : (
             <span className={`${styles.timeValue} ${styles.timeLive}`}>
               <span className={styles.liveDot} />

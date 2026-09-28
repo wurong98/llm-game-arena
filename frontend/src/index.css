@@ -27,7 +27,8 @@
   --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
   --mono: ui-monospace, 'Cascadia Code', Consolas, monospace;
   --digital: 'Share Tech Mono', var(--mono);
-  --led: #37f9c4;
+  --led-green: #37f9c4;
+  --led-red: #ff4d5e;
 
   font: 18px/145% var(--sans);
   letter-spacing: 0.18px;

@@ -83,7 +83,7 @@
   font-family: var(--digital);
   font-size: 15px;
   letter-spacing: 0.12em;
-  color: var(--led);
+  color: var(--led-green);
   font-variant-numeric: tabular-nums;
   text-shadow: 0 0 6px rgba(55, 249, 196, 0.85), 0 0 14px rgba(55, 249, 196, 0.4);
 }
@@ -92,7 +92,12 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  color: var(--led);
+  color: var(--led-green);
+}
+
+.timeEnded {
+  color: var(--led-red);
+  text-shadow: 0 0 6px rgba(255, 77, 94, 0.85), 0 0 14px rgba(255, 77, 94, 0.4);
 }
 
 .liveDot {
