@@ -30,6 +30,22 @@ function serializeMatch(row) {
     winner: row.winner,
     player_x: row.player_x,
     player_o: row.player_o,
+    created_at: row.created_at,
+    ended_at: row.status === "finished" ? row.updated_at : null,
+  };
+}
+
+function getLatencyTotals(match_id, player_x, player_o) {
+  const rows = db
+    .prepare(
+      "SELECT agent_id, SUM(latency_ms) AS total_latency FROM moves WHERE match_id = ? GROUP BY agent_id"
+    )
+    .all(match_id);
+  const byAgent = {};
+  for (const r of rows) byAgent[r.agent_id] = r.total_latency || 0;
+  return {
+    latency_x_ms: byAgent[player_x] || 0,
+    latency_o_ms: byAgent[player_o] || 0,
   };
 }
 
@@ -79,22 +95,49 @@ matchesRouter.get("/matches", (req, res) => {
   }
   query += " ORDER BY created_at DESC";
   const rows = db.prepare(query).all(...params);
+
+  const latencyByMatch = {};
+  if (rows.length) {
+    const placeholders = rows.map(() => "?").join(",");
+    const latRows = db
+      .prepare(
+        `SELECT match_id, agent_id, SUM(latency_ms) AS total_latency
+         FROM moves WHERE match_id IN (${placeholders}) GROUP BY match_id, agent_id`
+      )
+      .all(...rows.map((r) => r.match_id));
+    for (const lr of latRows) {
+      latencyByMatch[lr.match_id] = latencyByMatch[lr.match_id] || {};
+      latencyByMatch[lr.match_id][lr.agent_id] = lr.total_latency || 0;
+    }
+  }
+
   res.json(
-    rows.map((r) => ({
-      match_id: r.match_id,
-      game_type: r.game_type,
-      player_x: r.player_x,
-      player_o: r.player_o,
-      status: r.status,
-      winner: r.winner,
-    }))
+    rows.map((r) => {
+      const latency = latencyByMatch[r.match_id] || {};
+      return {
+        match_id: r.match_id,
+        game_type: r.game_type,
+        player_x: r.player_x,
+        player_o: r.player_o,
+        status: r.status,
+        winner: r.winner,
+        created_at: r.created_at,
+        ended_at: r.status === "finished" ? r.updated_at : null,
+        latency_x_ms: latency[r.player_x] || 0,
+        latency_o_ms: latency[r.player_o] || 0,
+      };
+    })
   );
 });
 
 matchesRouter.get("/matches/:id/state", (req, res) => {
   const row = db.prepare("SELECT * FROM matches WHERE match_id = ?").get(req.params.id);
   if (!row) return res.status(404).json({ ok: false, error: "match_not_found" });
-  res.json({ ...serializeMatch(row), move_history: getMoveHistory(row.match_id) });
+  res.json({
+    ...serializeMatch(row),
+    ...getLatencyTotals(row.match_id, row.player_x, row.player_o),
+    move_history: getMoveHistory(row.match_id),
+  });
 });
 
 matchesRouter.get("/matches/:id/moves/:index/debug", (req, res) => {

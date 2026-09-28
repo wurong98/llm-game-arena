@@ -12,3 +12,19 @@ export function getMatchStatus(status) {
 export function getAgentName(agents, agentId) {
   return agents.find((a) => a.agent_id === agentId)?.display_name || agentId;
 }
+
+export function formatDateTime(iso) {
+  if (!iso) return "-";
+  const d = new Date(iso);
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${d.getMonth() + 1}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+
+export function formatDuration(ms) {
+  if (!ms || ms <= 0) return "0s";
+  const totalSec = Math.round(ms / 1000);
+  if (totalSec < 60) return `${totalSec}s`;
+  const min = Math.floor(totalSec / 60);
+  const sec = totalSec % 60;
+  return `${min}m${sec}s`;
+}

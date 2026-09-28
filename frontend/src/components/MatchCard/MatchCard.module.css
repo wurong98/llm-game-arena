@@ -46,6 +46,20 @@
   white-space: nowrap;
 }
 
+.time {
+  display: block;
+  font-size: 11px;
+  color: var(--defeated);
+  font-weight: 400;
+}
+
+.timestamps {
+  color: var(--defeated);
+  font-family: var(--mono);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
 .winner {
   color: var(--winner) !important;
 }
