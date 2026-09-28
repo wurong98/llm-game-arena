@@ -87,26 +87,28 @@ echo $! > "$BACKEND_PID_FILE"
 disown
 
 echo "启动前端..."
-(cd "$FRONTEND_DIR" && exec setsid npm run dev > "$LOG_DIR/frontend.log" 2>&1) &
+(cd "$FRONTEND_DIR" && exec setsid npm run dev -- --host > "$LOG_DIR/frontend.log" 2>&1) &
 echo $! > "$FRONTEND_PID_FILE"
 disown
 
 sleep 2
 
-FRONTEND_URL="$(grep -oE 'http://localhost:[0-9]+' "$LOG_DIR/frontend.log" | head -1)"
+FRONTEND_URL="$(grep -oE 'http://[0-9.]+:[0-9]+' "$LOG_DIR/frontend.log" | tail -1)"
+HOST_IP="$(hostname -I 2>/dev/null | awk '{print $1}')"
 
 echo ""
 echo "======================================"
 if is_running "$BACKEND_PID_FILE"; then
-  echo "后端: http://localhost:4000  (运行中)"
+  echo "后端: http://${HOST_IP:-localhost}:4000  (运行中,已监听所有网卡)"
 else
   echo "后端: 启动失败,请查看 $LOG_DIR/backend.log"
 fi
 if is_running "$FRONTEND_PID_FILE"; then
-  echo "前端: ${FRONTEND_URL:-请查看 $LOG_DIR/frontend.log}  (运行中)"
+  echo "前端: ${FRONTEND_URL:-请查看 $LOG_DIR/frontend.log}  (运行中,已加 --host 监听所有网卡)"
 else
   echo "前端: 启动失败,请查看 $LOG_DIR/frontend.log"
 fi
+echo "如需外网访问,请确认云主机安全组/防火墙已放行 4000 和前端端口"
 echo "日志目录: $LOG_DIR"
 echo "停止服务: ./start.sh stop"
 echo "查看状态: ./start.sh status"

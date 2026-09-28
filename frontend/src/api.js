@@ -1,4 +1,4 @@
-const BASE = "http://localhost:4000";
+const BASE = `${window.location.protocol}//${window.location.hostname}:4000`;
 
 export async function getGames() {
   return (await fetch(`${BASE}/games`)).json();

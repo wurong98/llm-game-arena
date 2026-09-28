@@ -2,32 +2,87 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { getMatchState, getMoveDebug } from "../api";
 
-function Board({ board, highlightPos }) {
+const WIN_LINES = [
+  [0, 1, 2],
+  [3, 4, 5],
+  [6, 7, 8],
+  [0, 3, 6],
+  [1, 4, 7],
+  [2, 5, 8],
+  [0, 2, 4],
+  [2, 4, 6],
+];
+
+const CELL = 60;
+const GAP = 4;
+const STEP = CELL + GAP;
+
+function findWinLine(board) {
+  for (const line of WIN_LINES) {
+    const [a, b, c] = line;
+    if (board[a] && board[a] === board[b] && board[a] === board[c]) {
+      return line;
+    }
+  }
+  return null;
+}
+
+function cellCenter(i) {
+  const row = Math.floor(i / 3);
+  const col = i % 3;
+  return { x: col * STEP + CELL / 2, y: row * STEP + CELL / 2 };
+}
+
+function Board({ board, highlightPos, winLine }) {
+  const size = 3 * CELL + 2 * GAP;
   return (
-    <div
-      style={{
-        display: "grid",
-        gridTemplateColumns: "repeat(3, 60px)",
-        gap: 4,
-      }}
-    >
-      {board.map((cell, i) => (
-        <div
-          key={i}
-          style={{
-            width: 60,
-            height: 60,
-            border: "1px solid #333",
-            background: i === highlightPos ? "#fff3cd" : "white",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontSize: 28,
-          }}
+    <div style={{ position: "relative", width: size, height: size }}>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: `repeat(3, ${CELL}px)`,
+          gap: GAP,
+        }}
+      >
+        {board.map((cell, i) => (
+          <div
+            key={i}
+            style={{
+              width: CELL,
+              height: CELL,
+              border: "1px solid #333",
+              background: winLine?.includes(i)
+                ? "#ffd6d6"
+                : i === highlightPos
+                ? "#fff3cd"
+                : "white",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: 28,
+            }}
+          >
+            {cell}
+          </div>
+        ))}
+      </div>
+      {winLine && (
+        <svg
+          width={size}
+          height={size}
+          style={{ position: "absolute", top: 0, left: 0, pointerEvents: "none" }}
         >
-          {cell}
-        </div>
-      ))}
+          <line
+            x1={cellCenter(winLine[0]).x}
+            y1={cellCenter(winLine[0]).y}
+            x2={cellCenter(winLine[2]).x}
+            y2={cellCenter(winLine[2]).y}
+            stroke="red"
+            strokeWidth={5}
+            strokeLinecap="round"
+          />
+        </svg>
+      )}
     </div>
   );
 }
@@ -77,6 +132,8 @@ export default function MatchDetail() {
     return computeBoardAtStep(state.move_history, state.board.length, currentStep);
   }, [state, currentStep]);
 
+  const winLine = useMemo(() => findWinLine(replayBoard), [replayBoard]);
+
   if (!state) return <div>加载中...</div>;
 
   const goToStep = (step) => {
@@ -91,7 +148,7 @@ export default function MatchDetail() {
         状态: {state.status} {state.winner ? `胜者: ${state.winner}` : ""}
       </p>
 
-      <Board board={replayBoard} highlightPos={live ? null : lastPos} />
+      <Board board={replayBoard} highlightPos={live ? null : lastPos} winLine={winLine} />
 
       <div style={{ margin: "12px 0", display: "flex", alignItems: "center", gap: 8 }}>
         <button onClick={() => goToStep(0)} disabled={currentStep === 0}>
