@@ -24,10 +24,26 @@ export default function MatchCard({ match, agents }) {
           <span className={styles.time}>用时 {formatDuration(match.latency_o_ms)}</span>
         </span>
       </div>
+      <div className={styles.timeboard}>
+        <div className={styles.timeSlot}>
+          <span className={styles.timeLabel}>开赛</span>
+          <span className={styles.timeValue}>{formatDateTime(match.created_at)}</span>
+        </div>
+        <span className={styles.timeArrow}>→</span>
+        <div className={styles.timeSlot}>
+          <span className={styles.timeLabel}>结束</span>
+          {match.ended_at ? (
+            <span className={styles.timeValue}>{formatDateTime(match.ended_at)}</span>
+          ) : (
+            <span className={`${styles.timeValue} ${styles.timeLive}`}>
+              <span className={styles.liveDot} />
+              LIVE
+            </span>
+          )}
+        </div>
+      </div>
+
       <div className={styles.meta}>
-        <span className={styles.timestamps}>
-          {formatDateTime(match.created_at)} → {match.ended_at ? formatDateTime(match.ended_at) : "进行中"}
-        </span>
         {match.winner === "draw" && <Badge tone="neutral">平局</Badge>}
         {match.winner && match.winner !== "draw" && (
           <Badge tone="winner">胜者: {getAgentName(agents, match.winner)}</Badge>
