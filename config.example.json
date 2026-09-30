@@ -4,7 +4,7 @@
   "providers": {
     "openai": { "api_key": "", "base_url": "https://api.openai.com/v1" },
     "deepseek": { "api_key": "", "base_url": "https://api.deepseek.com" },
-    "minimax": { "api_key": "", "group_id": "", "base_url": "https://api.minimax.chat/v1" },
+    "minimax": { "api_key": "", "base_url": "https://api.minimax.chat" },
     "ollama": { "base_url": "http://localhost:11434" }
   }
 }

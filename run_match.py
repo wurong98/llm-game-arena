@@ -19,6 +19,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import subprocess
 import sys
@@ -61,6 +62,39 @@ def interactive_pick() -> tuple[str, str]:
     return x_name, o_name
 
 
+EV_LABEL = {
+    "move": "落子", "illegal": "非法落子", "blocked": "本地拦下",
+    "parse_error": "解析失败", "model_error": "调模型失败", "give_up": "放弃",
+}
+
+
+def _tail_new_events(trace_paths: Dict[str, str], positions: Dict[str, int]) -> None:
+    """把 trace_X.jsonl / trace_O.jsonl 里新增的行读出来，打印模型的原始回复。"""
+    for mark, path in trace_paths.items():
+        if not os.path.exists(path):
+            continue
+        with open(path, encoding="utf-8") as fp:
+            fp.seek(positions[mark])
+            while True:
+                line = fp.readline()
+                if not line:
+                    break
+                positions[mark] = fp.tell()
+                try:
+                    rec = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                ev = rec.get("ev")
+                if ev not in EV_LABEL:
+                    continue
+                raw = (rec.get("raw") or "").replace("\n", " ")
+                if len(raw) > 200:
+                    raw = raw[:200] + "..."
+                extra = f" pos={rec['pos']}" if "pos" in rec and rec["pos"] is not None else ""
+                err = f" ({rec['error']})" if rec.get("error") else (f" ({rec['err']})" if rec.get("err") else "")
+                print(f"    [{mark}][{EV_LABEL[ev]}{extra}{err}] {raw}", flush=True)
+
+
 def run_one_round(base: str, game_type: str, x_name: str, o_name: str,
                    move_timeout_ms: Optional[int], poll: float, max_seconds: float,
                    round_dir: str) -> Dict[str, str]:
@@ -72,13 +106,16 @@ def run_one_round(base: str, game_type: str, x_name: str, o_name: str,
 
     print(f"\n对局 {match_id}:  X={x_name}  O={o_name}")
 
+    trace_paths = {mark: os.path.join(round_dir, f"trace_{mark}.jsonl") for mark in ("X", "O")}
+    trace_pos = {mark: 0 for mark in ("X", "O")}
+
     procs = []
     for mark, name in (("X", x_name), ("O", o_name)):
         log = open(os.path.join(round_dir, f"player_{mark}.log"), "w", encoding="utf-8")
         procs.append((mark, subprocess.Popen(
             PLAYER + ["--base", base, "--match", match_id, "--name", name, "--mark", mark,
                       "--poll", str(poll), "--max-seconds", str(max_seconds),
-                      "--log", os.path.join(round_dir, f"trace_{mark}.jsonl")],
+                      "--log", trace_paths[mark]],
             cwd=HERE, stdout=log, stderr=subprocess.STDOUT), log))
 
     deadline = time.time() + max_seconds + 60
@@ -87,10 +124,12 @@ def run_one_round(base: str, game_type: str, x_name: str, o_name: str,
         st = arena.state(match_id)
         print(f"  [{st['status']:<11}] 轮到 {st['turn']}  {''.join(c or '.' for c in st['board'])}",
               flush=True)
+        _tail_new_events(trace_paths, trace_pos)
         if st["status"] == "finished":
             final = st
             break
         time.sleep(2)
+    _tail_new_events(trace_paths, trace_pos)
 
     for mark, proc, log in procs:
         if proc.poll() is None:

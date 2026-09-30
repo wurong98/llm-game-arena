@@ -70,7 +70,7 @@ def run_agent(base: str, match_id: str, name: str, mark: Optional[str] = None,
     if not entry:
         raise SystemExit(f"注册表里没有名字 {name!r}，先用 manage.py register")
 
-    arena = Arena(base, entry["api_key"])
+    arena = Arena(base, entry["arena_api_key"])
     provider = entry["provider"]
     template = entry.get("prompt_template") or registry.DEFAULT_PROMPT_TEMPLATE
     log_fp = open(log_path, "a", encoding="utf-8") if log_path else None

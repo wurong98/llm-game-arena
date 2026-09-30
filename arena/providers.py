@@ -77,16 +77,22 @@ def call_deepseek(prompt: str, cfg: Dict[str, Any]) -> str:
                                     prompt, cfg.get("temperature"), cfg.get("timeout", 90.0))
 
 
+def _strip_v1(base_url: str) -> str:
+    u = base_url.rstrip("/")
+    return u[:-3].rstrip("/") if u.endswith("/v1") else u
+
+
 def call_minimax(prompt: str, cfg: Dict[str, Any]) -> str:
+    """走 OpenAI 兼容的 /v1/chat/completions，官方和第三方中转站都这么支持。
+
+    base_url 不管填没填 /v1 都处理得了（先剥掉再统一拼 /v1/chat/completions）。
+    """
     api_key = _get(cfg, "api_key", "MINIMAX_API_KEY", provider="minimax")
     if not api_key:
-        raise ProviderError("缺少 MINIMAX_API_KEY（可写进 learning/config.json 或环境变量）")
-    group_id = _get(cfg, "group_id", "MINIMAX_GROUP_ID", provider="minimax")
-    base_url = _get(cfg, "base_url", "MINIMAX_BASE_URL", "https://api.minimax.chat/v1", provider="minimax")
+        raise ProviderError("缺少 MINIMAX_API_KEY（可写进 config.json 或环境变量）")
+    base_url = _get(cfg, "base_url", "MINIMAX_BASE_URL", "https://api.minimax.chat", provider="minimax")
     model = cfg.get("model") or "abab6.5s-chat"
-    url = f"{base_url.rstrip('/')}/text/chatcompletion_v2"
-    if group_id:
-        url += f"?GroupId={group_id}"
+    url = f"{_strip_v1(base_url)}/v1/chat/completions"
     return _openai_compatible_chat(url, api_key, model, prompt, cfg.get("temperature"),
                                     cfg.get("timeout", 90.0))
 
