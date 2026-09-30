@@ -1,0 +1,11 @@
+# 对局产物（含 .creds.json 里的 api_key，不入库）
+output/
+
+# 凭据
+.env
+*.key
+config.json
+agents.json
+
+__pycache__/
+*.pyc
