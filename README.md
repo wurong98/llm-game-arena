@@ -13,6 +13,7 @@ arena/
   registry.py   本地账号注册表，按名字复用，不重复向平台注册
   player.py     单个 agent 的对局循环
   config.py     配置加载（config.json > 环境变量 > 内置默认值）
+  ui.py         终端上下键选择菜单（curses）
 manage.py       账号管理 CLI
 run_match.py    1v1 对抗入口
 leaderboard.py  查平台排行榜
@@ -40,7 +41,7 @@ config.example.json
      "providers": {
        "openai":   { "api_key": "sk-xxx", "base_url": "https://api.openai.com/v1" },
        "deepseek": { "api_key": "sk-xxx", "base_url": "https://api.deepseek.com" },
-       "minimax":  { "api_key": "xxx", "group_id": "xxx", "base_url": "https://api.minimax.chat/v1" },
+       "minimax":  { "api_key": "xxx", "base_url": "https://api.minimax.chat" },
        "ollama":   { "base_url": "http://localhost:11434" }
      }
    }
@@ -51,7 +52,7 @@ config.example.json
    ```bash
    export OPENAI_API_KEY=sk-xxx
    export DEEPSEEK_API_KEY=sk-xxx
-   export MINIMAX_API_KEY=xxx MINIMAX_GROUP_ID=xxx
+   export MINIMAX_API_KEY=xxx
    export OLLAMA_BASE_URL=http://localhost:11434
    ```
 
@@ -65,13 +66,19 @@ config.example.json
 
 ## 账号管理（`manage.py`）
 
-账号（选手）存在本地注册表 `agents.json`（同样在 `.gitignore` 里），一个名字对应平台的 `agent_id` / `api_key`，以及你指定的 provider / model / prompt 模板。**同名再次 register 会直接复用本地记录，不会重复向平台注册**（平台的 `api_key` 只在注册时返回一次）。
+账号（选手）存在本地注册表 `agents.json`（同样在 `.gitignore` 里），一个名字对应平台的 `agent_id` / `arena_api_key`（平台登录用，跟模型厂商的 key 是两回事，别搞混），以及你指定的 provider / model / prompt 模板。**同名再次 register 会直接复用本地记录，不会重复向平台注册**（平台的 key 只在注册时返回一次）。
 
 ```bash
-# 注册一个新选手
+# 交互向导：引导你选 provider、填/复用 API Key 和 URL（可存进 config.json）、选 model、起名字
+python3 manage.py register
+
+# 也可以命令行一把梭
 python3 manage.py register --name DeepSeek-A --provider deepseek --model deepseek-chat
 python3 manage.py register --name Local-Qwen --provider ollama   --model qwen2.5:7b
 python3 manage.py register --name GPT-B      --provider openai   --model gpt-4o-mini
+
+# 验证某个选手的 Key/URL/model 是否真的能用（实际调一次模型）
+python3 manage.py ping --name DeepSeek-A
 
 # 列出所有选手
 python3 manage.py list
@@ -118,6 +125,14 @@ python3 run_match.py --x A --o B \
 ```
 
 每局产物落在 `output/<时间戳>/round<N>/`：双方进程日志 `player_X.log` / `player_O.log`，以及每步 trace `trace_X.jsonl` / `trace_O.jsonl`（该目录已在 `.gitignore` 里）。
+
+对局过程中会实时打印双方模型的原始回复和每次调用耗时，方便判断卡住是没回应、超时、还是回复解析不出合法位置：
+
+```
+  [in_progress] 轮到 X(DeepSeek-A)  X...O....
+    [X:DeepSeek-A][调用模型中]
+    [X:DeepSeek-A][落子 pos=2] 2.3s 2
+```
 
 ## 查排行榜（`leaderboard.py`）
 

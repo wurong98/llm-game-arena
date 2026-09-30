@@ -8,6 +8,7 @@
 
 from __future__ import annotations
 
+import functools
 import os
 import random
 from typing import Any, Dict, List
@@ -64,44 +65,43 @@ def _openai_compatible_chat(url: str, api_key: str, model: str, prompt: str,
         raise ProviderError(f"返回格式不对: {data}") from exc
 
 
-def call_openai(prompt: str, cfg: Dict[str, Any]) -> str:
-    api_key = _get(cfg, "api_key", "OPENAI_API_KEY", provider="openai")
-    if not api_key:
-        raise ProviderError("缺少 OPENAI_API_KEY（可写进 learning/config.json 或环境变量）")
-    base_url = _get(cfg, "base_url", "OPENAI_BASE_URL", "https://api.openai.com/v1", provider="openai")
-    model = cfg.get("model") or "gpt-4o-mini"
-    return _openai_compatible_chat(f"{base_url.rstrip('/')}/chat/completions", api_key, model,
-                                    prompt, cfg.get("temperature"), cfg.get("timeout", 90.0))
-
-
-def call_deepseek(prompt: str, cfg: Dict[str, Any]) -> str:
-    api_key = _get(cfg, "api_key", "DEEPSEEK_API_KEY", provider="deepseek")
-    if not api_key:
-        raise ProviderError("缺少 DEEPSEEK_API_KEY（可写进 learning/config.json 或环境变量）")
-    base_url = _get(cfg, "base_url", "DEEPSEEK_BASE_URL", "https://api.deepseek.com", provider="deepseek")
-    model = cfg.get("model") or "deepseek-chat"
-    return _openai_compatible_chat(f"{base_url.rstrip('/')}/chat/completions", api_key, model,
-                                    prompt, cfg.get("temperature"), cfg.get("timeout", 90.0))
-
-
 def _strip_v1(base_url: str) -> str:
     u = base_url.rstrip("/")
     return u[:-3].rstrip("/") if u.endswith("/v1") else u
 
 
-def call_minimax(prompt: str, cfg: Dict[str, Any]) -> str:
-    """走 OpenAI 兼容的 /v1/chat/completions，官方和第三方中转站都这么支持。
+# openai / deepseek / minimax 都是 OpenAI 兼容的 /chat/completions 接口，只是
+# 默认 base_url、默认 model、env 变量名不一样，抽成一张表用同一个函数处理。
+# minimax 官方和第三方中转站都支持 /v1/chat/completions，不用它专属的
+# /text/chatcompletion_v2 + GroupId 了；strip_v1=True 是因为不管 base_url
+# 填没填 /v1 结尾都要处理（先剥掉再统一拼 /v1/chat/completions）。
+_OPENAI_LIKE = {
+    "openai": {"env": "OPENAI_API_KEY", "base": "https://api.openai.com/v1",
+               "model": "gpt-4o-mini", "path": "/chat/completions"},
+    "deepseek": {"env": "DEEPSEEK_API_KEY", "base": "https://api.deepseek.com",
+                 "model": "deepseek-chat", "path": "/chat/completions"},
+    "minimax": {"env": "MINIMAX_API_KEY", "base": "https://api.minimax.chat",
+                "model": "abab6.5s-chat", "path": "/v1/chat/completions", "strip_v1": True},
+}
 
-    base_url 不管填没填 /v1 都处理得了（先剥掉再统一拼 /v1/chat/completions）。
-    """
-    api_key = _get(cfg, "api_key", "MINIMAX_API_KEY", provider="minimax")
+
+def _call_openai_like(provider: str, prompt: str, cfg: Dict[str, Any]) -> str:
+    spec = _OPENAI_LIKE[provider]
+    api_key = _get(cfg, "api_key", spec["env"], provider=provider)
     if not api_key:
-        raise ProviderError("缺少 MINIMAX_API_KEY（可写进 config.json 或环境变量）")
-    base_url = _get(cfg, "base_url", "MINIMAX_BASE_URL", "https://api.minimax.chat", provider="minimax")
-    model = cfg.get("model") or "abab6.5s-chat"
-    url = f"{_strip_v1(base_url)}/v1/chat/completions"
+        raise ProviderError(f"缺少 {spec['env']}（可写进 config.json 或环境变量）")
+    base_url = _get(cfg, "base_url", f"{provider.upper()}_BASE_URL", spec["base"], provider=provider)
+    if spec.get("strip_v1"):
+        base_url = _strip_v1(base_url)
+    model = cfg.get("model") or spec["model"]
+    url = base_url.rstrip("/") + spec["path"]
     return _openai_compatible_chat(url, api_key, model, prompt, cfg.get("temperature"),
                                     cfg.get("timeout", 90.0))
+
+
+call_openai = functools.partial(_call_openai_like, "openai")
+call_deepseek = functools.partial(_call_openai_like, "deepseek")
+call_minimax = functools.partial(_call_openai_like, "minimax")
 
 
 def call_ollama(prompt: str, cfg: Dict[str, Any]) -> str:
