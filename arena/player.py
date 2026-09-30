@@ -110,10 +110,12 @@ def run_agent(base: str, match_id: str, name: str, mark: Optional[str] = None,
             log_line(log_fp, ev="calling", timeout=cfg.get("timeout", 90.0))
             try:
                 raw = call_model(provider, prompt, cfg)
+                model_ms = int((time.time() - t0) * 1000)
                 model_errors = 0  # 调用成功，网络错误计数清零
             except ProviderError as exc:
+                model_ms = int((time.time() - t0) * 1000)
                 model_errors += 1
-                log_line(log_fp, ev="model_error", error=str(exc), tries=model_errors)
+                log_line(log_fp, ev="model_error", error=str(exc), tries=model_errors, model_ms=model_ms)
                 if model_errors >= max_model_retries:
                     log_line(log_fp, ev="give_up", reason="model_error", tries=model_errors)
                     return 2
@@ -126,11 +128,12 @@ def run_agent(base: str, match_id: str, name: str, mark: Optional[str] = None,
                 bad = None if pos in free else pos
             except ValueError as exc:
                 pos, bad = None, None
-                log_line(log_fp, ev="parse_error", raw=raw[:200], error=str(exc))
+                log_line(log_fp, ev="parse_error", raw=raw[:200], error=str(exc), model_ms=model_ms)
 
             if bad is not None or pos is None:
                 rejected = rejected + [bad if bad is not None else -1]
-                log_line(log_fp, ev="blocked", pos=pos, free=free, raw=raw[:200], tries=len(rejected))
+                log_line(log_fp, ev="blocked", pos=pos, free=free, raw=raw[:200], tries=len(rejected),
+                         model_ms=model_ms)
                 if len(rejected) >= max_retries:
                     log_line(log_fp, ev="give_up", rejected=rejected)
                     return 2
@@ -140,12 +143,13 @@ def run_agent(base: str, match_id: str, name: str, mark: Optional[str] = None,
             resp = arena.move(match_id, pos, prompt, raw)
             cost = int((time.time() - t0) * 1000)
             if resp.get("ok"):
-                log_line(log_fp, ev="move", pos=pos, raw=raw[:200], latency_ms=cost, free=free)
+                log_line(log_fp, ev="move", pos=pos, raw=raw[:200], latency_ms=cost,
+                         model_ms=model_ms, free=free)
                 rejected = []
             else:
                 rejected = rejected + [pos]
                 log_line(log_fp, ev="illegal", pos=pos, err=resp.get("error"), raw=raw[:200],
-                         latency_ms=cost, tries=len(rejected))
+                         latency_ms=cost, model_ms=model_ms, tries=len(rejected))
                 if len(rejected) >= max_retries:
                     log_line(log_fp, ev="give_up", rejected=rejected)
                     return 2

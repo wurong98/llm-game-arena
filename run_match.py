@@ -93,8 +93,9 @@ def _tail_new_events(trace_paths: Dict[str, str], positions: Dict[str, int],
                     raw = raw[:200] + "..."
                 extra = f" pos={rec['pos']}" if "pos" in rec and rec["pos"] is not None else ""
                 err = f" ({rec['error']})" if rec.get("error") else (f" ({rec['err']})" if rec.get("err") else "")
+                cost = f" {rec['model_ms']/1000:.1f}s" if rec.get("model_ms") is not None else ""
                 who = f"{mark}:{names[mark]}"
-                print(f"    [{who}][{EV_LABEL[ev]}{extra}{err}] {raw}", flush=True)
+                print(f"    [{who}][{EV_LABEL[ev]}{extra}{err}]{cost} {raw}", flush=True)
 
 
 def run_one_round(base: str, game_type: str, x_name: str, o_name: str,
