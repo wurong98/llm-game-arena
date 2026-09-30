@@ -47,10 +47,17 @@ def _openai_compatible_chat(url: str, api_key: str, model: str, prompt: str,
     payload: Dict[str, Any] = {"model": model, "messages": [{"role": "user", "content": prompt}]}
     if temperature is not None:
         payload["temperature"] = temperature
-    resp = requests.post(url, headers=headers, json=payload, timeout=timeout)
+    try:
+        resp = requests.post(url, headers=headers, json=payload, timeout=timeout)
+    except requests.RequestException as exc:
+        # 超时/连接失败不能让子进程直接崩掉，转成 ProviderError 交给上层重试
+        raise ProviderError(f"网络请求失败: {type(exc).__name__}: {exc}") from exc
     if resp.status_code >= 400:
         raise ProviderError(f"HTTP {resp.status_code}: {resp.text[:300]}")
-    data = resp.json()
+    try:
+        data = resp.json()
+    except ValueError as exc:
+        raise ProviderError(f"返回不是合法 JSON: {resp.text[:300]}") from exc
     try:
         return (data["choices"][0]["message"]["content"] or "").strip()
     except (KeyError, IndexError) as exc:
@@ -107,11 +114,17 @@ def call_ollama(prompt: str, cfg: Dict[str, Any]) -> str:
     }
     if cfg.get("temperature") is not None:
         payload["options"] = {"temperature": cfg["temperature"]}
-    resp = requests.post(f"{base_url.rstrip('/')}/api/chat", json=payload,
-                          timeout=cfg.get("timeout", 120.0))
+    try:
+        resp = requests.post(f"{base_url.rstrip('/')}/api/chat", json=payload,
+                              timeout=cfg.get("timeout", 120.0))
+    except requests.RequestException as exc:
+        raise ProviderError(f"网络请求失败: {type(exc).__name__}: {exc}") from exc
     if resp.status_code >= 400:
         raise ProviderError(f"HTTP {resp.status_code}: {resp.text[:300]}")
-    data = resp.json()
+    try:
+        data = resp.json()
+    except ValueError as exc:
+        raise ProviderError(f"返回不是合法 JSON: {resp.text[:300]}") from exc
     try:
         return (data["message"]["content"] or "").strip()
     except (KeyError, TypeError) as exc:

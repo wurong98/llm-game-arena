@@ -68,7 +68,8 @@ EV_LABEL = {
 }
 
 
-def _tail_new_events(trace_paths: Dict[str, str], positions: Dict[str, int]) -> None:
+def _tail_new_events(trace_paths: Dict[str, str], positions: Dict[str, int],
+                      names: Dict[str, str]) -> None:
     """把 trace_X.jsonl / trace_O.jsonl 里新增的行读出来，打印模型的原始回复。"""
     for mark, path in trace_paths.items():
         if not os.path.exists(path):
@@ -92,7 +93,8 @@ def _tail_new_events(trace_paths: Dict[str, str], positions: Dict[str, int]) -> 
                     raw = raw[:200] + "..."
                 extra = f" pos={rec['pos']}" if "pos" in rec and rec["pos"] is not None else ""
                 err = f" ({rec['error']})" if rec.get("error") else (f" ({rec['err']})" if rec.get("err") else "")
-                print(f"    [{mark}][{EV_LABEL[ev]}{extra}{err}] {raw}", flush=True)
+                who = f"{mark}:{names[mark]}"
+                print(f"    [{who}][{EV_LABEL[ev]}{extra}{err}] {raw}", flush=True)
 
 
 def run_one_round(base: str, game_type: str, x_name: str, o_name: str,
@@ -103,6 +105,7 @@ def run_one_round(base: str, game_type: str, x_name: str, o_name: str,
     match = arena.create_match(game_type, x_entry["agent_id"], o_entry["agent_id"], move_timeout_ms)
     match_id = match["match_id"]
     os.makedirs(round_dir, exist_ok=True)
+    names = {"X": x_name, "O": o_name}
 
     print(f"\n对局 {match_id}:  X={x_name}  O={o_name}")
 
@@ -122,14 +125,15 @@ def run_one_round(base: str, game_type: str, x_name: str, o_name: str,
     final = None
     while time.time() < deadline:
         st = arena.state(match_id)
-        print(f"  [{st['status']:<11}] 轮到 {st['turn']}  {''.join(c or '.' for c in st['board'])}",
-              flush=True)
-        _tail_new_events(trace_paths, trace_pos)
+        turn_name = names.get(st["turn"], st["turn"])
+        print(f"  [{st['status']:<11}] 轮到 {st['turn']}({turn_name})  "
+              f"{''.join(c or '.' for c in st['board'])}", flush=True)
+        _tail_new_events(trace_paths, trace_pos, names)
         if st["status"] == "finished":
             final = st
             break
         time.sleep(2)
-    _tail_new_events(trace_paths, trace_pos)
+    _tail_new_events(trace_paths, trace_pos, names)
 
     for mark, proc, log in procs:
         if proc.poll() is None:

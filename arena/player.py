@@ -65,7 +65,7 @@ def log_line(fp, **kw: Any) -> None:
 
 def run_agent(base: str, match_id: str, name: str, mark: Optional[str] = None,
               poll: float = 1.0, max_seconds: float = 900.0, max_retries: int = 3,
-              log_path: Optional[str] = None) -> int:
+              log_path: Optional[str] = None, max_model_retries: int = 6) -> int:
     entry = registry.get(name)
     if not entry:
         raise SystemExit(f"注册表里没有名字 {name!r}，先用 manage.py register")
@@ -82,6 +82,7 @@ def run_agent(base: str, match_id: str, name: str, mark: Optional[str] = None,
                  provider=provider, model=entry.get("model"))
 
         rejected: List[int] = []
+        model_errors = 0
         deadline = time.time() + max_seconds
         while time.time() < deadline:
             state = arena.state(match_id)
@@ -108,9 +109,16 @@ def run_agent(base: str, match_id: str, name: str, mark: Optional[str] = None,
             t0 = time.time()
             try:
                 raw = call_model(provider, prompt, cfg)
+                model_errors = 0  # 调用成功，网络错误计数清零
             except ProviderError as exc:
-                log_line(log_fp, ev="model_error", error=str(exc))
-                raw = ""
+                model_errors += 1
+                log_line(log_fp, ev="model_error", error=str(exc), tries=model_errors)
+                if model_errors >= max_model_retries:
+                    log_line(log_fp, ev="give_up", reason="model_error", tries=model_errors)
+                    return 2
+                # 指数退避，别把对方模型的接口打爆
+                time.sleep(min(poll * (2 ** (model_errors - 1)), 30.0))
+                continue
 
             try:
                 pos = parse_pos(raw)
@@ -158,11 +166,12 @@ def main() -> int:
     p.add_argument("--mark", default=None, help="X 或 O，留空自动判断")
     p.add_argument("--poll", type=float, default=1.0)
     p.add_argument("--max-seconds", type=float, default=900.0)
-    p.add_argument("--max-retries", type=int, default=3)
+    p.add_argument("--max-retries", type=int, default=3, help="非法落子/解析失败几次后放弃")
+    p.add_argument("--max-model-retries", type=int, default=6, help="调模型网络失败几次后放弃（指数退避）")
     p.add_argument("--log", default=None)
     args = p.parse_args()
     return run_agent(args.base, args.match, args.name, args.mark, args.poll,
-                      args.max_seconds, args.max_retries, args.log)
+                      args.max_seconds, args.max_retries, args.log, args.max_model_retries)
 
 
 if __name__ == "__main__":
