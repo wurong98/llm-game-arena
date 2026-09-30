@@ -107,6 +107,7 @@ def run_agent(base: str, match_id: str, name: str, mark: Optional[str] = None,
             prompt = build_prompt(template, state["board"], my_mark, retry_hint)
             cfg = dict(entry, _free=free)
             t0 = time.time()
+            log_line(log_fp, ev="calling", timeout=cfg.get("timeout", 90.0))
             try:
                 raw = call_model(provider, prompt, cfg)
                 model_errors = 0  # 调用成功，网络错误计数清零

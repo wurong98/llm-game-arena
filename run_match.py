@@ -63,7 +63,7 @@ def interactive_pick() -> tuple[str, str]:
 
 
 EV_LABEL = {
-    "move": "落子", "illegal": "非法落子", "blocked": "本地拦下",
+    "calling": "调用模型中", "move": "落子", "illegal": "非法落子", "blocked": "本地拦下",
     "parse_error": "解析失败", "model_error": "调模型失败", "give_up": "放弃",
 }
 
